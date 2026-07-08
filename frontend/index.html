@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Loan Approval Prediction</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --text: #1f2430;
+    --muted: #6b7280;
+    --accent: #2f6feb;
+    --border: #e2e5ea;
+    --approve: #1a7f37;
+    --reject: #c0362c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    padding: 40px 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    width: 100%;
+    max-width: 480px;
+  }
+  h1 {
+    font-size: 1.3rem;
+    margin: 0 0 4px;
+  }
+  p.subtitle {
+    color: var(--muted);
+    margin: 0 0 20px;
+    font-size: 0.9rem;
+  }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    margin: 12px 0 4px;
+    color: var(--muted);
+  }
+  select, input {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    background: #fff;
+  }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  button {
+    margin-top: 22px;
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+  #result {
+    margin-top: 20px;
+    padding: 16px;
+    border-radius: 8px;
+    display: none;
+  }
+  #result.approved { background: #eafaf0; border: 1px solid var(--approve); }
+  #result.rejected { background: #fdecea; border: 1px solid var(--reject); }
+  #result h2 { margin: 0 0 4px; font-size: 1.1rem; }
+  #result.approved h2 { color: var(--approve); }
+  #result.rejected h2 { color: var(--reject); }
+  #result p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  #error {
+    margin-top: 14px;
+    color: var(--reject);
+    font-size: 0.85rem;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>Loan Approval Prediction</h1>
+  <p class="subtitle">Fill in applicant details to get an instant prediction.</p>
+
+  <form id="loanForm">
+    <div class="row">
+      <div>
+        <label>Gender</label>
+        <select name="Gender">
+          <option>Male</option>
+          <option>Female</option>
+        </select>
+      </div>
+      <div>
+        <label>Married</label>
+        <select name="Married">
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Dependents</label>
+        <select name="Dependents">
+          <option>0</option>
+          <option>1</option>
+          <option>2</option>
+          <option>3+</option>
+        </select>
+      </div>
+      <div>
+        <label>Education</label>
+        <select name="Education">
+          <option>Graduate</option>
+          <option>Not Graduate</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Self Employed</label>
+        <select name="Self_Employed">
+          <option>No</option>
+          <option>Yes</option>
+        </select>
+      </div>
+      <div>
+        <label>Property Area</label>
+        <select name="Property_Area">
+          <option>Urban</option>
+          <option>Semiurban</option>
+          <option>Rural</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Applicant Income</label>
+        <input type="number" name="ApplicantIncome" value="5000" required />
+      </div>
+      <div>
+        <label>Coapplicant Income</label>
+        <input type="number" name="CoapplicantIncome" value="0" required />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Loan Amount (in thousands)</label>
+        <input type="number" name="LoanAmount" value="150" required />
+      </div>
+      <div>
+        <label>Loan Term (days)</label>
+        <input type="number" name="Loan_Amount_Term" value="360" required />
+      </div>
+    </div>
+
+    <label>Credit History</label>
+    <select name="Credit_History">
+      <option value="1">Good (has met past debts)</option>
+      <option value="0">Poor (has NOT met past debts)</option>
+    </select>
+
+    <button type="submit" id="submitBtn">Check Approval</button>
+  </form>
+
+  <div id="result"></div>
+  <div id="error"></div>
+</div>
+
+<script>
+  // Change this if your FastAPI server runs elsewhere
+  const API_URL = "http://127.0.0.1:8000/predict";
+
+  const form = document.getElementById("loanForm");
+  const resultBox = document.getElementById("result");
+  const errorBox = document.getElementById("error");
+  const submitBtn = document.getElementById("submitBtn");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    resultBox.style.display = "none";
+    errorBox.style.display = "none";
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Checking...";
+
+    const formData = new FormData(form);
+    const payload = {
+      Gender: formData.get("Gender"),
+      Married: formData.get("Married"),
+      Dependents: formData.get("Dependents"),
+      Education: formData.get("Education"),
+      Self_Employed: formData.get("Self_Employed"),
+      ApplicantIncome: parseFloat(formData.get("ApplicantIncome")),
+      CoapplicantIncome: parseFloat(formData.get("CoapplicantIncome")),
+      LoanAmount: parseFloat(formData.get("LoanAmount")),
+      Loan_Amount_Term: parseFloat(formData.get("Loan_Amount_Term")),
+      Credit_History: parseFloat(formData.get("Credit_History")),
+      Property_Area: formData.get("Property_Area"),
+    };
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error("Server returned an error");
+
+      const data = await res.json();
+
+      resultBox.className = data.approved ? "approved" : "rejected";
+      resultBox.innerHTML = `
+        <h2>${data.decision}</h2>
+        <p>Approval probability: ${(data.approval_probability * 100).toFixed(1)}%</p>
+      `;
+      resultBox.style.display = "block";
+    } catch (err) {
+      errorBox.textContent = "Could not reach the prediction server. Is app.py running?";
+      errorBox.style.display = "block";
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Check Approval";
+    }
+  });
+</script>
+
+</body>
+</html>
